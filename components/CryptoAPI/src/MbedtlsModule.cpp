@@ -1,6 +1,8 @@
 #include "MbedtlsModule.h"
 #include <mbedtls/platform.h>
 #include <mbedtls/sha256.h>
+#include <mbedtls/sha512.h>
+#include <mbedtls/sha3.h>
 #include <mbedtls/error.h>
 #include <mbedtls/base64.h>
 
