@@ -1,8 +1,11 @@
 #include "CryptoApiCommons.h"
+#include <stdio.h>
+#include <string.h>
 
 static const char *TAG = "CryptoApiCommons";
 
-CryptoApiCommons::CryptoApiCommons() : littlefs_initialized(false) {}
+// CryptoApiCommons::CryptoApiCommons() : littlefs_initialized(false) {}
+CryptoApiCommons::CryptoApiCommons() {}
 
 Algorithms CryptoApiCommons::get_chosen_algorithm()
 {
@@ -46,6 +49,7 @@ size_t CryptoApiCommons::get_hash_length()
   }
 }
 
+/*
 esp_err_t CryptoApiCommons::init_littlefs()
 {
   conf = {
@@ -197,6 +201,7 @@ long CryptoApiCommons::get_file_size(const char *file_path)
   fclose(file);
   return file_size;
 }
+*/
 
 void CryptoApiCommons::log_success(const char *msg)
 {

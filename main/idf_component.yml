@@ -1,6 +1,5 @@
 ## IDF Component Manager Manifest File
 dependencies:
-  joltwallet/littlefs: "==1.14.8"
   espressif/esp-idf-cxx: "^1.0.2-beta"
   ## Required IDF version
   idf:

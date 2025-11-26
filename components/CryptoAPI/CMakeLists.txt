@@ -7,4 +7,4 @@ idf_component_register(SRCS "src/CryptoAPI.cpp"
                             "src/MicroeccModule.cpp"
                             "src/CryptoApiCommons.cpp"
                      INCLUDE_DIRS "include"
-                     REQUIRES wolfssl mbedtls micro-ecc esp_timer littlefs)
+                     REQUIRES wolfssl mbedtls micro-ecc esp_timer)

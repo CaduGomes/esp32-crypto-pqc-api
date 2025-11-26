@@ -3,7 +3,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_log.h"
-#include "esp_littlefs.h"
+// #include "esp_littlefs.h"
 #include "esp_err.h"
 
 #ifndef CRYPTO_API_COMMONS
@@ -44,19 +44,21 @@ public:
   void print_total_cycles(unsigned long initial, unsigned long final, const char *label);
   size_t get_hash_length();
 
+  /*
   esp_err_t init_littlefs();
   void close_littlefs();
   void write_file(const char *file_path, const unsigned char *data);
   void write_binary_file(const char *file_path, const unsigned char *data, size_t data_len);
   void read_file(const char *file_path, unsigned char *buffer, size_t buffer_size);
   long get_file_size(const char *file_path);
+  */
 
 private:
   Algorithms chosen_algorithm;
   Hashes chosen_hash;
   size_t shake256_hash_length;
-  esp_vfs_littlefs_conf_t conf;
-  bool littlefs_initialized;
+  // esp_vfs_littlefs_conf_t conf;
+  // bool littlefs_initialized;
 };
 
 #endif

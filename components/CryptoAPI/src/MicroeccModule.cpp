@@ -280,7 +280,8 @@ void MicroeccModule::save_private_key(const char *file_path, unsigned char *priv
   int ret = private_key_to_pem_format(private_key);
   if (ret == 0)
   {
-    commons.write_file(file_path, private_key);
+    // commons.write_file(file_path, private_key);
+    ESP_LOGW(TAG, "LittleFS disabled: private key not saved to %s", file_path);
   }
   else
   {
@@ -293,7 +294,8 @@ void MicroeccModule::save_public_key(const char *file_path, unsigned char *publi
   int ret = public_key_to_pem_format(public_key);
   if (ret == 0)
   {
-    commons.write_file(file_path, public_key);
+    // commons.write_file(file_path, public_key);
+    ESP_LOGW(TAG, "LittleFS disabled: public key not saved to %s", file_path);
   }
   else
   {
@@ -303,10 +305,12 @@ void MicroeccModule::save_public_key(const char *file_path, unsigned char *publi
 
 void MicroeccModule::save_signature(const char *file_path, const unsigned char *signature, size_t sig_len)
 {
-  commons.write_binary_file(file_path, signature, sig_len);
+  // commons.write_binary_file(file_path, signature, sig_len);
+  ESP_LOGW(TAG, "LittleFS disabled: signature not saved to %s", file_path);
 }
 
 void MicroeccModule::load_file(const char *file_path, unsigned char *buffer, size_t buffer_size)
 {
-  commons.read_file(file_path, buffer, buffer_size);
+  // commons.read_file(file_path, buffer, buffer_size);
+  ESP_LOGW(TAG, "LittleFS disabled: cannot load file from %s", file_path);
 }

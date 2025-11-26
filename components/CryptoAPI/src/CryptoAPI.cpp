@@ -23,11 +23,11 @@ int CryptoAPI::init(Algorithms algorithm, Hashes hash, size_t length_of_shake256
 {
   // Try to initialize LittleFS, but continue even if it fails
   // (LittleFS is not currently being used, so failure is not critical)
-  esp_err_t littlefs_ret = commons.init_littlefs();
-  if (littlefs_ret != ESP_OK)
-  {
-    ESP_LOGW(TAG, "LittleFS initialization failed, continuing without filesystem support");
-  }
+  // esp_err_t littlefs_ret = commons.init_littlefs();
+  // if (littlefs_ret != ESP_OK)
+  // {
+  //   ESP_LOGW(TAG, "LittleFS initialization failed, continuing without filesystem support");
+  // }
 
   if (this->chosen_library == Libraries::MBEDTLS_LIB)
   {
@@ -142,7 +142,7 @@ int CryptoAPI::verify(const unsigned char *message, size_t message_length, unsig
 
 void CryptoAPI::close()
 {
-  commons.close_littlefs();
+  // commons.close_littlefs();
 
   if (this->chosen_library == Libraries::MBEDTLS_LIB)
   {
@@ -284,7 +284,8 @@ Libraries CryptoAPI::get_chosen_library()
 
 long CryptoAPI::get_file_size(const char *file_path)
 {
-  return commons.get_file_size(file_path);
+  // return commons.get_file_size(file_path);
+  return 0;
 }
 
 void CryptoAPI::print_init_configuration(Libraries library, Algorithms algorithm, Hashes hash, size_t length_of_shake256)
