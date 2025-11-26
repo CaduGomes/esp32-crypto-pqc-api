@@ -36,3 +36,44 @@ The project already has a build folder, so you can try simply running the projec
 4) ```idf.py monitor``` (alternatively, if using VSCode, ```CTRL + SHIFT + P``` and select ```ESP-IDF: Monitor device```
 
 After this, the project should be up and running on your device.
+
+## Integração liboqs e Alterações para PQC
+
+Para suportar algoritmos Post-Quantum Cryptography (PQC) utilizando a biblioteca `liboqs` no ESP32, foram realizadas diversas modificações e configurações específicas.
+
+### Alterações de Configuração (sdkconfig.defaults)
+
+Para garantir a execução correta dos algoritmos PQC, que são intensivos em memória e processamento, as seguintes configurações foram aplicadas:
+
+*   **Task Watchdog:** O timeout foi aumentado para **60 segundos** (`CONFIG_ESP_TASK_WDT_TIMEOUT_S=60`) para evitar resets durante a execução do algoritmo SLH-DSA, que pode levar cerca de 20 segundos para assinar.
+*   **Stack Size:** O tamanho da pilha da tarefa principal foi aumentado para **100KB** (`CONFIG_ESP_MAIN_TASK_STACK_SIZE=102400`) para suportar o consumo elevado de memória do algoritmo ML-DSA (Dilithium).
+*   **System Event Stack:** Aumentado para 4KB (`CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096`) como precaução.
+*   **Heap Debugging:** Habilitado `CONFIG_HEAP_POISONING_COMPREHENSIVE=y` para detecção precoce de corrupção de memória.
+*   **SHA3:** Habilitado suporte a SHA3 no MbedTLS (`CONFIG_MBEDTLS_SHA3_C=y`).
+*   **Partition Table:** Configurado para usar uma tabela de partições personalizada (`CONFIG_PARTITION_TABLE_CUSTOM=y`, `partitions.csv`) para incluir uma partição `littlefs` necessária para o sistema de arquivos.
+
+### Alterações na Biblioteca liboqs (Porting para ESP32)
+
+A biblioteca `liboqs` foi integrada como um componente ESP-IDF em `components/liboqs`, com as seguintes adaptações:
+
+1.  **Configuração (oqsconfig.h):**
+    *   Criado arquivo de configuração específico para ESP32.
+    *   Habilitados apenas os algoritmos necessários: **SPHINCS+**, **ML-DSA** (Dilithium), **FALCON** e **SLH-DSA**.
+    *   Desabilitadas instruções específicas de arquitetura não suportadas pelo ESP32 (AVX, SSE, NEON, AES-NI, etc.).
+
+2.  **Build System (CMakeLists.txt):**
+    *   Implementado filtro para excluir arquivos fonte que utilizam instruções de arquitetura incompatíveis (x86, ARM, AVX, SSE).
+    *   Configurada a cópia automática de headers necessários e inclusão de diretórios específicos do PQClean.
+
+3.  **Correções de Código (Patches):**
+    *   **`src/common/common.c`**:
+        *   A função `OQS_MEM_aligned_alloc` foi ajustada para garantir um alinhamento mínimo de 4 bytes, evitando erros de acesso à memória no ESP32.
+        *   Correção de erros de sintaxe (diretivas de pré-processador).
+    *   **`src/sig/sphincs/.../merkle.c`**: Adicionados *type casts* explícitos `(uint32_t *)` para corrigir avisos de tipos de ponteiro incompatíveis.
+
+4.  **Integração com Hardware (RNG):**
+    *   **`components/CryptoAPI/src/LiboqsModule.cpp`**: Implementada a função `oqs_esp32_randombytes` que utiliza o gerador de números aleatórios de hardware do ESP32 (`esp_fill_random`). Esta função foi registrada no `liboqs` via `OQS_randombytes_custom_algorithm` para substituir a leitura padrão de `/dev/urandom`.
+
+### Outras Adições
+
+*   **`partitions.csv`**: Arquivo de tabela de partições criado para definir o layout da flash, incluindo a partição `littlefs`.

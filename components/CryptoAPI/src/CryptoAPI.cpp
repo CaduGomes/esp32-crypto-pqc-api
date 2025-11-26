@@ -2,6 +2,7 @@
 #include "MbedtlsModule.h"
 #include "WolfsslModule.h"
 #include "MicroeccModule.h"
+#include "LiboqsModule.h"
 
 static const char *TAG = "CryptoAPI";
 
@@ -10,6 +11,7 @@ CryptoAPI::CryptoAPI()
   mbedtls_module = new MbedtlsModule(commons);
   wolfssl_module = new WolfsslModule(commons);
   microecc_module = new MicroeccModule(commons, *mbedtls_module);
+  liboqs_module = new LiboqsModule(commons);
 }
 
 CryptoAPI::~CryptoAPI()
@@ -17,6 +19,7 @@ CryptoAPI::~CryptoAPI()
   delete mbedtls_module;
   delete wolfssl_module;
   delete microecc_module;
+  delete liboqs_module;
 }
 
 int CryptoAPI::init(Algorithms algorithm, Hashes hash, size_t length_of_shake256)
@@ -37,6 +40,11 @@ int CryptoAPI::init(Algorithms algorithm, Hashes hash, size_t length_of_shake256
   if (this->chosen_library == Libraries::WOLFSSL_LIB)
   {
     return wolfssl_module->init(algorithm, hash, length_of_shake256);
+  }
+
+  if (this->chosen_library == Libraries::LIBOQS_LIB)
+  {
+    return liboqs_module->init(algorithm, hash, length_of_shake256);
   }
 
   return microecc_module->init(Algorithms::ECDSA_SECP256R1, hash, 0);
@@ -60,6 +68,11 @@ int CryptoAPI::get_signature_size()
   if (this->chosen_library == Libraries::WOLFSSL_LIB)
   {
     return wolfssl_module->get_signature_size();
+  }
+
+  if (this->chosen_library == Libraries::LIBOQS_LIB)
+  {
+    return liboqs_module->get_signature_size();
   }
 
   return microecc_module->get_signature_size();
@@ -92,6 +105,11 @@ int CryptoAPI::gen_keys()
     return mbedtls_module->gen_keys();
   }
 
+  if (this->chosen_library == Libraries::LIBOQS_LIB)
+  {
+    return liboqs_module->gen_keys();
+  }
+
   return microecc_module->gen_keys();
 }
 
@@ -105,6 +123,11 @@ int CryptoAPI::get_public_key_pem(unsigned char *public_key_pem)
   if (this->chosen_library == Libraries::WOLFSSL_LIB)
   {
     return wolfssl_module->get_public_key_pem(public_key_pem);
+  }
+
+  if (this->chosen_library == Libraries::LIBOQS_LIB)
+  {
+    return liboqs_module->get_public_key_pem(public_key_pem);
   }
 
   return microecc_module->get_public_key_pem(public_key_pem);
@@ -122,6 +145,11 @@ int CryptoAPI::sign(const unsigned char *message, size_t message_length, unsigne
     return wolfssl_module->sign(message, message_length, signature, signature_length);
   }
 
+  if (this->chosen_library == Libraries::LIBOQS_LIB)
+  {
+    return liboqs_module->sign(message, message_length, signature, signature_length);
+  }
+
   return microecc_module->sign(message, message_length, signature, 0);
 }
 
@@ -135,6 +163,11 @@ int CryptoAPI::verify(const unsigned char *message, size_t message_length, unsig
   if (this->chosen_library == Libraries::WOLFSSL_LIB)
   {
     return wolfssl_module->verify(message, message_length, signature, signature_length);
+  }
+
+  if (this->chosen_library == Libraries::LIBOQS_LIB)
+  {
+    return liboqs_module->verify(message, message_length, signature, signature_length);
   }
 
   return microecc_module->verify(message, message_length, signature, 0);
@@ -156,6 +189,12 @@ void CryptoAPI::close()
     return;
   }
 
+  if (this->chosen_library == Libraries::LIBOQS_LIB)
+  {
+    liboqs_module->close();
+    return;
+  }
+
   microecc_module->close();
 }
 
@@ -170,6 +209,12 @@ void CryptoAPI::save_private_key(const char *file_path, unsigned char *private_k
   if (get_chosen_library() == Libraries::WOLFSSL_LIB)
   {
     this->wolfssl_module->save_private_key(file_path, private_key, private_key_size);
+    return;
+  }
+
+  if (get_chosen_library() == Libraries::LIBOQS_LIB)
+  {
+    this->liboqs_module->save_private_key(file_path, private_key, private_key_size);
     return;
   }
 
@@ -190,6 +235,12 @@ void CryptoAPI::save_public_key(const char *file_path, unsigned char *public_key
     return;
   }
 
+  if (get_chosen_library() == Libraries::LIBOQS_LIB)
+  {
+    this->liboqs_module->save_public_key(file_path, public_key, public_key_size);
+    return;
+  }
+
   this->microecc_module->save_public_key(file_path, public_key, public_key_size);
 }
 
@@ -204,6 +255,12 @@ void CryptoAPI::save_signature(const char *file_path, const unsigned char *signa
   if (get_chosen_library() == Libraries::WOLFSSL_LIB)
   {
     this->wolfssl_module->save_signature(file_path, signature, sig_len);
+    return;
+  }
+
+  if (get_chosen_library() == Libraries::LIBOQS_LIB)
+  {
+    this->liboqs_module->save_signature(file_path, signature, sig_len);
     return;
   }
 
@@ -224,6 +281,12 @@ void CryptoAPI::load_file(const char *file_path, unsigned char *buffer, size_t b
     return;
   }
 
+  if (get_chosen_library() == Libraries::LIBOQS_LIB)
+  {
+    this->liboqs_module->load_file(file_path, buffer, buffer_size);
+    return;
+  }
+
   this->microecc_module->load_file(file_path, buffer, buffer_size);
 }
 
@@ -237,6 +300,11 @@ size_t CryptoAPI::get_private_key_size()
   if (get_chosen_library() == Libraries::WOLFSSL_LIB)
   {
     return this->wolfssl_module->get_private_key_pem_size();
+  }
+
+  if (get_chosen_library() == Libraries::LIBOQS_LIB)
+  {
+    return this->liboqs_module->get_private_key_size();
   }
 
   return this->microecc_module->get_private_key_size();
@@ -254,6 +322,11 @@ size_t CryptoAPI::get_public_key_size()
     return this->wolfssl_module->get_public_key_pem_size();
   }
 
+  if (get_chosen_library() == Libraries::LIBOQS_LIB)
+  {
+    return this->liboqs_module->get_public_key_size();
+  }
+
   return this->microecc_module->get_public_key_size();
 }
 
@@ -267,6 +340,11 @@ size_t CryptoAPI::get_public_key_pem_size()
   if (get_chosen_library() == Libraries::WOLFSSL_LIB)
   {
     return this->wolfssl_module->get_public_key_pem_size();
+  }
+
+  if (get_chosen_library() == Libraries::LIBOQS_LIB)
+  {
+    return this->liboqs_module->get_public_key_pem_size();
   }
 
   return this->microecc_module->get_public_key_pem_size();
@@ -301,6 +379,9 @@ void CryptoAPI::print_init_configuration(Libraries library, Algorithms algorithm
   case MICROECC_LIB:
     library_str = "MICROECC";
     break;
+  case LIBOQS_LIB:
+    library_str = "LIBOQS";
+    break;
   default:
     library_str = "UNKNOWN";
     break;
@@ -329,6 +410,18 @@ void CryptoAPI::print_init_configuration(Libraries library, Algorithms algorithm
     break;
   case RSA:
     algorithm_str = "RSA";
+    break;
+  case SPHINCS_PLUS:
+    algorithm_str = "SPHINCS+";
+    break;
+  case ML_DSA:
+    algorithm_str = "ML-DSA";
+    break;
+  case FALCON:
+    algorithm_str = "FALCON";
+    break;
+  case SLH_DSA:
+    algorithm_str = "SLH-DSA";
     break;
   default:
     algorithm_str = "UNKNOWN";

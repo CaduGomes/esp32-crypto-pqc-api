@@ -75,6 +75,9 @@ int WolfsslModule::init(Algorithms algorithm, Hashes hash, size_t length_of_shak
       return ret;
     }
     break;
+  default:
+    ESP_LOGE(TAG, "Algorithm not supported in WolfSSL init");
+    return -1;
   }
 
   end_time = esp_timer_get_time() / 1000;
@@ -238,6 +241,9 @@ int WolfsslModule::sign(const unsigned char *message, size_t message_length, uns
       return ret;
     }
     break;
+  default:
+    ESP_LOGE(TAG, "Algorithm not supported in WolfSSL sign");
+    ret = -1;
   }
 
   unsigned long end_time = esp_timer_get_time() / 1000;
@@ -342,6 +348,9 @@ int WolfsslModule::verify(const unsigned char *message, size_t message_length, u
       ESP_LOGE(TAG, "> Signature not valid.");
     }
     break;
+  default:
+    ESP_LOGE(TAG, "Algorithm not supported in WolfSSL verify");
+    ret = -1;
   }
 
   unsigned long end_time = esp_timer_get_time() / 1000;

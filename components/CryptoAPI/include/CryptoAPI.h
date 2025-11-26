@@ -8,12 +8,14 @@ enum Libraries
 {
   MBEDTLS_LIB,
   WOLFSSL_LIB,
-  MICROECC_LIB
+  MICROECC_LIB,
+  LIBOQS_LIB
 };
 
 class MbedtlsModule;
 class WolfsslModule;
 class MicroeccModule;
+class LiboqsModule;
 
 class CryptoAPI : public ICryptoModule
 {
@@ -53,6 +55,7 @@ private:
   MbedtlsModule *mbedtls_module;
   WolfsslModule *wolfssl_module;
   MicroeccModule *microecc_module;
+  LiboqsModule *liboqs_module;
   Libraries chosen_library;
 
   void print_init_configuration(Libraries library, Algorithms algorithm, Hashes hash, size_t length_of_shake256);
