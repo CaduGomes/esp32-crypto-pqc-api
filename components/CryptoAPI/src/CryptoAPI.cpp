@@ -21,7 +21,13 @@ CryptoAPI::~CryptoAPI()
 
 int CryptoAPI::init(Algorithms algorithm, Hashes hash, size_t length_of_shake256)
 {
-  commons.init_littlefs();
+  // Try to initialize LittleFS, but continue even if it fails
+  // (LittleFS is not currently being used, so failure is not critical)
+  esp_err_t littlefs_ret = commons.init_littlefs();
+  if (littlefs_ret != ESP_OK)
+  {
+    ESP_LOGW(TAG, "LittleFS initialization failed, continuing without filesystem support");
+  }
 
   if (this->chosen_library == Libraries::MBEDTLS_LIB)
   {

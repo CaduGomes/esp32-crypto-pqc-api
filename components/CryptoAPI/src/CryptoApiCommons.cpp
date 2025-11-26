@@ -2,7 +2,7 @@
 
 static const char *TAG = "CryptoApiCommons";
 
-CryptoApiCommons::CryptoApiCommons() {}
+CryptoApiCommons::CryptoApiCommons() : littlefs_initialized(false) {}
 
 Algorithms CryptoApiCommons::get_chosen_algorithm()
 {
@@ -46,7 +46,7 @@ size_t CryptoApiCommons::get_hash_length()
   }
 }
 
-void CryptoApiCommons::init_littlefs()
+esp_err_t CryptoApiCommons::init_littlefs()
 {
   conf = {
       .base_path = "/littlefs",
@@ -58,6 +58,7 @@ void CryptoApiCommons::init_littlefs()
 
   if (ret != ESP_OK)
   {
+    littlefs_initialized = false;
     if (ret == ESP_FAIL)
     {
       ESP_LOGE(TAG, "Failed to mount or format filesystem");
@@ -70,8 +71,10 @@ void CryptoApiCommons::init_littlefs()
     {
       ESP_LOGE(TAG, "Failed to initialize LittleFS (%s)", esp_err_to_name(ret));
     }
-    return;
+    return ret;
   }
+
+  littlefs_initialized = true;
 
   size_t total = 0, used = 0;
   ret = esp_littlefs_info(conf.partition_label, &total, &used);
@@ -83,11 +86,26 @@ void CryptoApiCommons::init_littlefs()
   {
     ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
   }
+
+  return ESP_OK;
 }
 
 void CryptoApiCommons::close_littlefs()
 {
-  esp_vfs_littlefs_unregister(conf.partition_label);
+  if (!littlefs_initialized)
+  {
+    return;
+  }
+
+  esp_err_t ret = esp_vfs_littlefs_unregister(conf.partition_label);
+  if (ret == ESP_OK)
+  {
+    littlefs_initialized = false;
+  }
+  else
+  {
+    ESP_LOGE(TAG, "Failed to unregister LittleFS: %s", esp_err_to_name(ret));
+  }
 }
 
 void CryptoApiCommons::write_file(const char *file_path, const unsigned char *data)

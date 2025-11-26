@@ -2,6 +2,8 @@
 #include "CryptoAPI.h"
 
 #include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define MY_RSA_KEY_SIZE 4096
 #define MY_RSA_EXPONENT 65537
@@ -24,8 +26,12 @@ extern "C" void app_main(void)
     for (int i = 1; i <= 10; i++)
     {
         printf("---------- Beggining operation %d ----------", i);
+        
         int ret = perform_tests(Libraries::WOLFSSL_LIB, Algorithms::ECDSA_BP256R1, Hashes::MY_SHA_512, 512);
         ESP_LOGI(TAG, "Finished status: %d", ret);
+        
+        // Give time to the system between operations
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -83,6 +89,7 @@ int perform_tests(Libraries library, Algorithms algorithm, Hashes hash, size_t s
     unsigned char *signature = (unsigned char *)malloc(signature_length * sizeof(unsigned char));
 
     ret = crypto_api.sign(message, message_length, signature, &signature_length);
+    
     if (ret != 0)
     {
         return ret;
@@ -92,6 +99,7 @@ int perform_tests(Libraries library, Algorithms algorithm, Hashes hash, size_t s
     // crypto_api.save_signature(signature_path, signature, signature_length);
 
     ret = crypto_api.verify(message, message_length, signature, signature_length);
+    
     if (ret != 0)
     {
         return ret;

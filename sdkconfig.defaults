@@ -3,4 +3,3 @@
 
 # Habilitar SHA3 no MbedTLS
 CONFIG_MBEDTLS_SHA3_C=y
-
