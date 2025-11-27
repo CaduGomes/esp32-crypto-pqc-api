@@ -26,11 +26,13 @@ int CryptoAPI::init(Algorithms algorithm, Hashes hash, size_t length_of_shake256
 {
   // Try to initialize LittleFS, but continue even if it fails
   // (LittleFS is not currently being used, so failure is not critical)
+  /*
   esp_err_t littlefs_ret = commons.init_littlefs();
   if (littlefs_ret != ESP_OK)
   {
     ESP_LOGW(TAG, "LittleFS initialization failed, continuing without filesystem support");
   }
+  */
 
   if (this->chosen_library == Libraries::MBEDTLS_LIB)
   {
@@ -411,8 +413,11 @@ void CryptoAPI::print_init_configuration(Libraries library, Algorithms algorithm
   case RSA:
     algorithm_str = "RSA";
     break;
-  case SPHINCS_PLUS:
-    algorithm_str = "SPHINCS+";
+  case SPHINCS_PLUS_SHA2:
+    algorithm_str = "SPHINCS+-SHA2";
+    break;
+  case SPHINCS_PLUS_SHAKE:
+    algorithm_str = "SPHINCS+-SHAKE";
     break;
   case ML_DSA:
     algorithm_str = "ML-DSA";
@@ -420,8 +425,11 @@ void CryptoAPI::print_init_configuration(Libraries library, Algorithms algorithm
   case FALCON:
     algorithm_str = "FALCON";
     break;
-  case SLH_DSA:
-    algorithm_str = "SLH-DSA";
+  case SLH_DSA_SHA2:
+    algorithm_str = "SLH-DSA-SHA2";
+    break;
+  case SLH_DSA_SHAKE:
+    algorithm_str = "SLH-DSA-SHAKE";
     break;
   default:
     algorithm_str = "UNKNOWN";
@@ -448,10 +456,10 @@ void CryptoAPI::print_init_configuration(Libraries library, Algorithms algorithm
     break;
   }
 
-  ESP_LOGI(TAG, "INITIALIZED LIBRARY [ %s ] WITH ALGORITHM [ %s ] AND HASH [ %s ]", library_str, algorithm_str, hash_str);
+  // ESP_LOGI(TAG, "INITIALIZED LIBRARY [ %s ] WITH ALGORITHM [ %s ] AND HASH [ %s ]", library_str, algorithm_str, hash_str);
 
   if (hash == Hashes::MY_SHAKE_256)
   {
-    ESP_LOGI(TAG, "SHAKE_256 LENGTH [ %zu ]", length_of_shake256);
+    // ESP_LOGI(TAG, "SHAKE_256 LENGTH [ %zu ]", length_of_shake256);
   }
 }

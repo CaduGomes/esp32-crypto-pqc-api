@@ -18,10 +18,12 @@ enum Algorithms
   EDDSA_25519,
   EDDSA_448,
   RSA,
-  SPHINCS_PLUS,
+  SPHINCS_PLUS_SHA2,
+  SPHINCS_PLUS_SHAKE,
   ML_DSA,
   FALCON,
-  SLH_DSA,
+  SLH_DSA_SHA2,
+  SLH_DSA_SHAKE,
 };
 
 enum Hashes

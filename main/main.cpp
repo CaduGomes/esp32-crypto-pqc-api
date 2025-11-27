@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <string.h>
 #include "CryptoAPI.h"
 
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -10,134 +12,138 @@
 
 static const char *TAG = "Main";
 
-static const char private_key_path[] = "/littlefs/private_key.pem";
-static const char public_key_path[] = "/littlefs/public_key.pem";
-static const char signature_path[] = "/littlefs/signature.bin";
-
 static const unsigned char message[] = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.";
 static const size_t message_length = sizeof(message);
 
 CryptoAPI crypto_api;
 
-int perform_tests(Libraries library, Algorithms algorithm, Hashes hash, size_t shake_256_length);
+struct TestMetrics {
+    int64_t gen_keys_time_us;
+    int64_t sign_time_us;
+    int64_t verify_time_us;
+    size_t pub_key_size;
+    size_t priv_key_size;
+    size_t sig_size;
+};
+
+void run_benchmark_cycle(Algorithms algorithm, Hashes hash, const char* alg_name, const char* hash_name)
+{
+    const int ITERATIONS = 10;
+    TestMetrics metrics_sum = {0};
+    size_t pub_size = 0, priv_size = 0, sig_size = 0;
+    bool success_once = false;
+
+    // Run iterations
+    for (int i = 0; i < ITERATIONS; i++) {
+        size_t shake_len = (hash == Hashes::MY_SHAKE_256) ? 32 : 0; // Default 32 bytes for shake if used as digest
+        if (crypto_api.init(Libraries::LIBOQS_LIB, algorithm, hash, shake_len) != 0) {
+            printf("Error init\n");
+            continue;
+        }
+
+        int64_t start = esp_timer_get_time();
+        if (crypto_api.gen_keys() != 0) {
+             printf("Error gen_keys\n");
+             continue;
+        }
+        metrics_sum.gen_keys_time_us += (esp_timer_get_time() - start);
+
+        // Capture sizes only once
+        if (i == 0) {
+            pub_size = crypto_api.get_public_key_size();
+            priv_size = crypto_api.get_private_key_size();
+            sig_size = crypto_api.get_signature_size();
+        }
+
+        unsigned char *signature = (unsigned char *)malloc(crypto_api.get_signature_size());
+        if (signature == NULL) {
+            printf("Error malloc signature\n");
+            continue;
+        }
+        size_t sig_len_out = 0;
+
+        start = esp_timer_get_time();
+        if (crypto_api.sign(message, message_length, signature, &sig_len_out) != 0) {
+            printf("Error sign\n");
+            free(signature);
+            continue;
+        }
+        metrics_sum.sign_time_us += (esp_timer_get_time() - start);
+
+        start = esp_timer_get_time();
+        if (crypto_api.verify(message, message_length, signature, sig_len_out) != 0) {
+            printf("Error verify\n");
+            free(signature);
+            continue;
+        }
+        metrics_sum.verify_time_us += (esp_timer_get_time() - start);
+        
+        free(signature);
+        crypto_api.close();
+        success_once = true;
+        
+        // Small delay to prevent WDT issues
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    if (!success_once) {
+        printf("%s, %s, FAILED, -, -, -, -, -, -\n", alg_name, hash_name);
+        return;
+    }
+
+    // Averages in ms
+    double avg_gen = (double)metrics_sum.gen_keys_time_us / ITERATIONS / 1000.0;
+    double avg_sign = (double)metrics_sum.sign_time_us / ITERATIONS / 1000.0;
+    double avg_verify = (double)metrics_sum.verify_time_us / ITERATIONS / 1000.0;
+
+    // CSV Output: Algorithm, Hash, TimeGen(ms), TimeSign(ms), TimeVerify(ms), PubKey(B), PrivKey(B), Sig(B)
+    printf("%s, %s, %.2f, %.2f, %.2f, %zu, %zu, %zu\n", 
+           alg_name, hash_name, avg_gen, avg_sign, avg_verify, pub_size, priv_size, sig_size);
+}
 
 extern "C" void app_main(void)
 {
-    // Original test (reduced iterations for brevity if desired, keeping as is for now)
-    /*
-    for (int i = 1; i <= 1; i++)
-    {
-        printf("---------- Beggining operation %d (Original) ----------\n", i);
-        
-        int ret = perform_tests(Libraries::WOLFSSL_LIB, Algorithms::ECDSA_BP256R1, Hashes::MY_SHA_512, 512);
-        ESP_LOGI(TAG, "Finished status: %d", ret);
-        
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    */
+    vTaskDelay(pdMS_TO_TICKS(2000)); // Wait for monitor to attach
 
-    // New PQC Tests
-    int ret;
+    printf("\n\n========== PQC BENCHMARK RESULTS ==========\n");
+    printf("Algorithm, HashDigest, AvgGenKey(ms), AvgSign(ms), AvgVerify(ms), PubKeyBytes, PrivKeyBytes, SigBytes\n");
 
-    printf("---------- Testing SPHINCS+ (liboqs) ----------\n");
-    ret = perform_tests(Libraries::LIBOQS_LIB, Algorithms::SPHINCS_PLUS, Hashes::MY_SHA_256, 0);
-    ESP_LOGI(TAG, "SPHINCS+ Status: %d", ret);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    Algorithms algs[] = {
+        Algorithms::SPHINCS_PLUS_SHA2,
+        Algorithms::SPHINCS_PLUS_SHAKE,
+        Algorithms::ML_DSA,
+        Algorithms::FALCON,
+        Algorithms::SLH_DSA_SHA2,
+        Algorithms::SLH_DSA_SHAKE
+    };
+    const char* alg_names[] = {
+        "SPHINCS+-SHA2",
+        "SPHINCS+-SHAKE",
+        "ML-DSA",
+        "FALCON",
+        "SLH-DSA-SHA2",
+        "SLH-DSA-SHAKE"
+    };
 
-    printf("---------- Testing ML-DSA (liboqs) ----------\n");
-    ret = perform_tests(Libraries::LIBOQS_LIB, Algorithms::ML_DSA, Hashes::MY_SHA_256, 0);
-    ESP_LOGI(TAG, "ML-DSA Status: %d", ret);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    Hashes hashes[] = {
+        Hashes::MY_SHA_256,
+        Hashes::MY_SHA_512,
+        Hashes::MY_SHA3_256,
+        Hashes::MY_SHAKE_256
+    };
+    const char* hash_names[] = {
+        "SHA_256",
+        "SHA_512",
+        "SHA3_256",
+        "SHAKE_256"
+    };
 
-    printf("---------- Testing FALCON (liboqs) ----------\n");
-    ret = perform_tests(Libraries::LIBOQS_LIB, Algorithms::FALCON, Hashes::MY_SHA_256, 0);
-    ESP_LOGI(TAG, "FALCON Status: %d", ret);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-    printf("---------- Testing SLH-DSA (liboqs) ----------\n");
-    ret = perform_tests(Libraries::LIBOQS_LIB, Algorithms::SLH_DSA, Hashes::MY_SHA_256, 0);
-    ESP_LOGI(TAG, "SLH-DSA Status: %d", ret);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-}
-
-int perform_tests(Libraries library, Algorithms algorithm, Hashes hash, size_t shake_256_length)
-{
-    int ret = crypto_api.init(library, algorithm, hash, shake_256_length);
-    if (ret != 0)
-    {
-        ESP_LOGE(TAG, "Init failed");
-        return ret;
-    }
-
-    if (crypto_api.get_chosen_algorithm() == Algorithms::RSA)
-    {
-        ret = crypto_api.gen_rsa_keys(MY_RSA_KEY_SIZE, MY_RSA_EXPONENT);
-    }
-    else
-    {
-        ret = crypto_api.gen_keys();
-    }
-
-    if (ret != 0)
-    {
-        ESP_LOGE(TAG, "Key gen failed");
-        return ret;
-    }
-
-    // getting public key pem (Optional, might fail/be empty for liboqs if unimplemented properly, but we implemented a basic one)
-    size_t public_key_pem_size = crypto_api.get_public_key_pem_size();
-    if (public_key_pem_size > 0) {
-        unsigned char *public_key_pem = (unsigned char *)malloc(public_key_pem_size * sizeof(unsigned char));
-        ret = crypto_api.get_public_key_pem(public_key_pem);
-        if (ret == 0)
-        {
-             // ESP_LOGI(TAG, "public_key_pem:\n%s", public_key_pem);
+    for (int a = 0; a < 6; a++) {
+        for (int h = 0; h < 4; h++) {
+            run_benchmark_cycle(algs[a], hashes[h], alg_names[a], hash_names[h]);
+            vTaskDelay(pdMS_TO_TICKS(500)); // Cool down
         }
-        free(public_key_pem);
     }
 
-    // // saving keys and signature
-    // size_t private_key_size = crypto_api.get_private_key_size();
-    // unsigned char *private_key = (unsigned char *)malloc(private_key_size * sizeof(unsigned char));
-    // crypto_api.save_private_key(private_key_path, private_key, private_key_size); // This populates the buffer now for liboqs
-    // // ESP_LOGI(TAG, "Saved Private Key (PEM):\n%s", private_key);
-    // free(private_key);
-
-    // size_t public_key_size = crypto_api.get_public_key_size();
-    // unsigned char *public_key = (unsigned char *)malloc(public_key_size * sizeof(unsigned char));
-    // crypto_api.save_public_key(public_key_path, public_key, public_key_size);
-    // // ESP_LOGI(TAG, "Saved Public Key (PEM):\n%s", (char *)public_key);
-    // free(public_key);
-
-    size_t signature_length = crypto_api.get_signature_size();
-    // ESP_LOGI(TAG, "signature_length: %zu", signature_length);
-
-    unsigned char *signature = (unsigned char *)malloc(signature_length * sizeof(unsigned char));
-
-    ret = crypto_api.sign(message, message_length, signature, &signature_length);
-    
-    if (ret != 0)
-    {
-        ESP_LOGE(TAG, "Sign failed");
-        free(signature);
-        return ret;
-    }
-
-    // ESP_LOG_BUFFER_HEX("Signature", signature, signature_length);
-    // crypto_api.save_signature(signature_path, signature, signature_length);
-
-    ret = crypto_api.verify(message, message_length, signature, signature_length);
-    
-    if (ret != 0)
-    {
-        ESP_LOGE(TAG, "Verify failed");
-        free(signature);
-        return ret;
-    }
-    
-    free(signature);
-
-    crypto_api.close();
-
-    return 0;
+    printf("========== BENCHMARK COMPLETE ==========\n");
 }

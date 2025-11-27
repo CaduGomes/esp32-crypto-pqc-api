@@ -26,8 +26,11 @@ int LiboqsModule::init(Algorithms algorithm, Hashes hash, size_t length_of_shake
     const char *alg_name = nullptr;
     switch (algorithm)
     {
-    case SPHINCS_PLUS:
+    case SPHINCS_PLUS_SHA2:
         alg_name = OQS_SIG_alg_sphincs_sha2_128f_simple;
+        break;
+    case SPHINCS_PLUS_SHAKE:
+        alg_name = OQS_SIG_alg_sphincs_shake_128f_simple;
         break;
     case ML_DSA:
         alg_name = OQS_SIG_alg_ml_dsa_44;
@@ -35,7 +38,10 @@ int LiboqsModule::init(Algorithms algorithm, Hashes hash, size_t length_of_shake
     case FALCON:
         alg_name = OQS_SIG_alg_falcon_512;
         break;
-    case SLH_DSA:
+    case SLH_DSA_SHA2:
+        alg_name = OQS_SIG_alg_slh_dsa_pure_sha2_128f;
+        break;
+    case SLH_DSA_SHAKE:
         alg_name = OQS_SIG_alg_slh_dsa_pure_shake_128f;
         break;
     default:
@@ -95,7 +101,7 @@ int LiboqsModule::gen_keys()
     OQS_STATUS status = OQS_SIG_keypair(sig_ctx, public_key, secret_key);
     
     unsigned long end_time = esp_timer_get_time() / 1000;
-    commons.print_elapsed_time(start_time, end_time, "liboqs_gen_keys");
+    // commons.print_elapsed_time(start_time, end_time, "liboqs_gen_keys");
 
     if (status != OQS_SUCCESS)
     {
@@ -103,7 +109,7 @@ int LiboqsModule::gen_keys()
         return -1;
     }
 
-    commons.log_success("gen_keys");
+    // commons.log_success("gen_keys");
     return 0;
 }
 
@@ -116,7 +122,7 @@ int LiboqsModule::sign(const unsigned char *message, size_t message_length, unsi
     OQS_STATUS status = OQS_SIG_sign(sig_ctx, signature, signature_length, message, message_length, secret_key);
 
     unsigned long end_time = esp_timer_get_time() / 1000;
-    commons.print_elapsed_time(start_time, end_time, "liboqs_sign");
+    // commons.print_elapsed_time(start_time, end_time, "liboqs_sign");
 
     if (status != OQS_SUCCESS)
     {
@@ -136,7 +142,7 @@ int LiboqsModule::verify(const unsigned char *message, size_t message_length, un
     OQS_STATUS status = OQS_SIG_verify(sig_ctx, message, message_length, signature, signature_length, public_key);
 
     unsigned long end_time = esp_timer_get_time() / 1000;
-    commons.print_elapsed_time(start_time, end_time, "liboqs_verify");
+    // commons.print_elapsed_time(start_time, end_time, "liboqs_verify");
 
     if (status != OQS_SUCCESS)
     {
